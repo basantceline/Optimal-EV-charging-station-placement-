@@ -1,51 +1,84 @@
 clc;
 clear all;
-PB=load('probableBuses.mat')
-pb=PB.probableBuses
-voltageData=[]
-lossReal=[]
-for i= pb
-    m=load('loaddata.m');
-    l=load('linedata.m');
-    data=m(i,2)+120;
-    m(i,2)= data
-    [voltage,loss]= indLoadFlow(m,l)
-    voltageData=[voltageData,voltage]
-    lossReal=[lossReal,sum(loss)]
+
+m = load('loaddata.m');
+l = load('linedata.m');
+voltageBase = indLoadFlow(m, l);
+total = sum(m(:,2));
+for i= 2:28
+% Choose bus to analyze
+bus_to_analyze = i;
+
+% Initialize arrays
+x = [];
+voltage12 = [];
+
+% Set maximum load increment (e.g., 300% of base load)
+max_load_increment = 3 * m(bus_to_analyze, 2);
+
+% Set smaller step size
+step_size = max_load_increment / 100;
+
+m1 = m;
+for increment = 0:step_size:max_load_increment
+    m1(bus_to_analyze, 2) = m(bus_to_analyze, 2) + increment;
+    
+    voltagePerturbed = indLoadFlow(m1, l);
+    
+    if isempty(voltagePerturbed)
+        disp(['Load flow did not converge at increment: ', num2str(increment)]);
+        break;
+    end
+    
+    x(end+1) = m1(bus_to_analyze, 2) / m(bus_to_analyze, 2);  % Load as multiple of base load
+    voltage12(end+1) = voltagePerturbed(bus_to_analyze);
+end
+
+if i==2 
+   figure;
+plot(x, voltage12, 'b-', 'LineWidth', 2);
+xlabel('Load (multiple of base load)');
+ylabel('Voltage (p.u.)');
+title(['PV Curve for Bus ', num2str(bus_to_analyze)]);
+grid on;
+xlim([1 max(x)]);
+ylim([min(voltage12)-0.05 max(voltage12)+0.05]);
+else
+    plot(x, voltage12, 'b-', 'LineWidth', 2);
+end
+
     
 end
-lossReal=[65.078,lossReal]
-%plot bar graph for real power loss
- xval=["base", "Pen @ "+ num2str(2),"Pen @ "+ num2str(29),"Pen @ "+ num2str(9),"Pen @ "+ num2str(21)] 
-b1= bar(lossReal);
-xticklabels({xval(1),xval(2),xval(3),xval(4),xval(5)});
-xlabel('Penetration Scenarios');
-ylabel('Total feeder Active Power Loss');
-    %plot bar graph
-    % Create x-axis values
-    bus=1:1:29;
-%     bus=bus.';
-x =bus;
+    %      delV=abs((voltageBase(i)-voltagePerturbed(i))*11000)
+    %      delP=abs(m(i,2)-m1(i,2))
+    %      slope(1,end+1)=delV/delP;
 
-% Create the figure
-figure;
-
-% Plot multiple bar graphs
-b = bar(x, voltageData);
-bus=1:1:29;
-bus=bus.';
-xticks(bus);
-xlabel('Bus');
-ylabel('Voltage in pu');
-ylim([0 1.1]);
-% Customize the appearance
-set(b, {'FaceColor'}, {[0.3 0.3 0.9]; [0.9 0.3 0.3]; [0.3 0.9 0.3]; [ 0.9 0.9 0.3]});
-% Adjust the figure size if needed
-set(gcf, 'Position', [100, 100, 800, 600]);
+% dataActual=table();
+% for i= 2:29
+%     m=load('loaddata.m');
+%     l=load('linedata.m');
+%     data=m(i,2)+120;
+%     m(i,2)= data;
+%     voltage= indLoadFlow(m,l);
+%     if i == 2
+%         dataActual.Pentration2= voltage
+%     else
+%          name = "Pentration at "+ num2str(i)
+%         dataActual.(name)= voltage;
+%     end
+%
+% end
+% names= strings(1, 29);
+% for q= 1:29
+% names(1,q)="Bus "+num2str(q);
+% end
+% dataActual.Properties.RowNames=names;
+% writetable(dataActual,'voltageProfile.xlsx','WriteRowNames',true)
 
 
 
-function [voltageModify,pLoss] = indLoadFlow(m,l)
+
+function voltageModify = indLoadFlow(m,l)
 format short;
 br=length(l);
 no=length(m);
@@ -56,7 +89,7 @@ KVb=11;
 Zb=(KVb^2)/MVAb;
 Pg = zeros(no,1);
 Pg1 = zeros(no,1);
- 
+
 for i=1:br
     R(i,1)=(l(i,4))/Zb;
     X(i,1)=(l(i,5))/Zb;
@@ -101,29 +134,29 @@ endnode;
 h=length(endnode);
 for j=1:h
     e=2;
-    
+
     f=endnode(j,1);
-   % while (f~=1)
-   for s=1:no
-     if (f~=1)
-       k=1;  
-       for i=1:br
-           if ((C(i,f)==1)&&(k==1))
-                f=i;
-                k=2;
-           end
-       end
-       k=1;
-       for i=1:no
-           if ((C(f,i)==-1)&&(k==1));
-                f=i;
-                g(j,e)=i;
-                e=e+1;
-                k=3;
-           end            
-       end
-     end
-   end
+    % while (f~=1)
+    for s=1:no
+        if (f~=1)
+            k=1;
+            for i=1:br
+                if ((C(i,f)==1)&&(k==1))
+                    f=i;
+                    k=2;
+                end
+            end
+            k=1;
+            for i=1:no
+                if ((C(f,i)==-1)&&(k==1));
+                    f=i;
+                    g(j,e)=i;
+                    e=e+1;
+                    k=3;
+                end
+            end
+        end
+    end
 end
 for i=1:h
     g(i,1)=endnode(i,1);
@@ -132,14 +165,14 @@ g;
 w=length(g(1,:));
 for i=1:h
     j=1;
-    for k=1:no 
+    for k=1:no
         for t=1:w
             if g(i,t)==k
                 g(i,t)=g(i,j);
                 g(i,j)=k;
                 j=j+1;
-             end
-         end
+            end
+        end
     end
 end
 g;
@@ -147,14 +180,14 @@ for k=1:br
     e=1;
     for i=1:h
         for j=1:w-1
-            if (g(i,j)==k) 
+            if (g(i,j)==k)
                 if g(i,j+1)~=0
-                    adjb(k,e)=g(i,j+1);            
+                    adjb(k,e)=g(i,j+1);
                     e=e+1;
                 else
                     adjb(k,1)=0;
                 end
-             end
+            end
         end
     end
 end
@@ -198,45 +231,45 @@ for i=1:no
     vb(i,1)=1;
 end
 for s=1:10
-for i=1:no
-    nlc(i,1)=conj(complex(P(i,1),Q(i,1)))/(vb(i,1));
-end
-nlc;
-for i=1:br
-    Ibr(i,1)=nlc(i+1,1);
-end
-Ibr;
-xy=length(adjcb(1,:));
-for i=br-1:-1:1
-    for k=1:xy
-        if adjcb(i,k)~=0
-            u=adjcb(i,k);
-            Ibr(i,1)=Ibr(i,1)+Ibr(u,1);
+    for i=1:no
+        nlc(i,1)=conj(complex(P(i,1),Q(i,1)))/(vb(i,1));
+    end
+    nlc;
+    for i=1:br
+        Ibr(i,1)=nlc(i+1,1);
+    end
+    Ibr;
+    xy=length(adjcb(1,:));
+    for i=br-1:-1:1
+        for k=1:xy
+            if adjcb(i,k)~=0
+                u=adjcb(i,k);
+                Ibr(i,1)=Ibr(i,1)+Ibr(u,1);
+            end
         end
-    end      
-end
-Ibr;
-for i=2:no
-      g=0;
-      for a=1:b 
-          if xy>1
-            if adjcb(a,2)==i-1 
-                u=adjcb(a,1);
-                vb(i,1)=((vb(u,1))-((Ibr(i-1,1))*(complex((R(i-1,1)),X(i-1,1)))));
-                g=1;
+    end
+    Ibr;
+    for i=2:no
+        g=0;
+        for a=1:b
+            if xy>1
+                if adjcb(a,2)==i-1
+                    u=adjcb(a,1);
+                    vb(i,1)=((vb(u,1))-((Ibr(i-1,1))*(complex((R(i-1,1)),X(i-1,1)))));
+                    g=1;
+                end
+                if adjcb(a,3)==i-1
+                    u=adjcb(a,1);
+                    vb(i,1)=((vb(u,1))-((Ibr(i-1,1))*(complex((R(i-1,1)),X(i-1,1)))));
+                    g=1;
+                end
             end
-            if adjcb(a,3)==i-1 
-                u=adjcb(a,1);
-                vb(i,1)=((vb(u,1))-((Ibr(i-1,1))*(complex((R(i-1,1)),X(i-1,1)))));
-                g=1;
-            end
-          end
         end
         if g==0
             vb(i,1)=((vb(i-1,1))-((Ibr(i-1,1))*(complex((R(i-1,1)),X(i-1,1)))));
         end
-end
-s=s+1;
+    end
+    s=s+1;
 end
 nlc;
 Ibr;
@@ -257,7 +290,7 @@ Ibrp=[abs(Ibr)];
 PL(1,1)=0;
 QL(1,1)=0;
 
-% losses at base case 
+% losses at base case
 for f=1:br
     Pl(f,1)=(Ibrp(f,1)^2)*R(f,1);
     Ql(f,1)=X(f,1)*(Ibrp(f,1)^2);
@@ -266,7 +299,6 @@ for f=1:br
 end
 
 Plosskw=(Pl)*100000;
-pLoss=Plosskw;
 Qlosskw=(Ql)*100000;
 PL=(PL)*100000;
 QL=(QL)*100000;
@@ -286,7 +318,7 @@ voltageModify=v_mag;
 % % for plotting bar and formatting the graph
 % bus=1:1:no;
 % bus=bus.';
-% pBus= bus(2:end);  
+% pBus= bus(2:end);
 % %subplot(2,1,1)
 % bar(pBus,Plosskw);
 % xticks(pBus);
@@ -308,4 +340,5 @@ voltageModify=v_mag;
 % xlabel('Branch');
 % ylabel('Reactive Power loss (KVAR)');
 end
+
 

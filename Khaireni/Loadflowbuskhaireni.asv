@@ -19,8 +19,8 @@ lossReal=[65.078,lossReal]
  xval=["base", "Pen @ "+ num2str(2),"Pen @ "+ num2str(29),"Pen @ "+ num2str(9),"Pen @ "+ num2str(21)] 
 b1= bar(lossReal);
 xticklabels({xval(1),xval(2),xval(3),xval(4),xval(5)});
-xlabel('Penetration Scenarios');
-ylabel('Total feeder Active Power Loss');
+xlabel('Penetration Scenario');
+ylabel('Voltage in pu');
     %plot bar graph
     % Create x-axis values
     bus=1:1:29;
