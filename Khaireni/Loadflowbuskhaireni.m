@@ -2,25 +2,40 @@ clc;
 clear all;
 PB=load('probableBuses.mat')
 pb=PB.probableBuses
-voltageData=[]
-lossReal=[]
-for i= pb
+voltageData=[];
+lossReal=[];
+for i= 1 : 3
     m=load('loaddata.m');
     l=load('linedata.m');
-    data=m(i,2)+120;
-    m(i,2)= data
+    if i==1
+        data=m(pb(1),2)+142;
+        m(pb(1),2)= data
     [voltage,loss]= indLoadFlow(m,l)
-    voltageData=[voltageData,voltage]
-    lossReal=[lossReal,sum(loss)]
-    
+    voltageData=[voltage];
+    lossReal=[lossReal,sum(loss)];
+    elseif i==2
+            data=m(pb(2),2)+142;
+        m(pb(2),2)= data
+    [voltage,loss]= indLoadFlow(m,l)
+    voltageData=[voltageData,voltage];
+    lossReal=[lossReal,sum(loss)];
+        else
+            data=m(pb(1),2)+142;
+        m(pb(1),2)= data;
+        data=m(pb(3),2)+142;
+        m(pb(3),2)= data
+    [voltage,loss]= indLoadFlow(m,l)
+    voltageData=[voltageData,voltage];
+    lossReal=[lossReal,sum(loss)];
+        end
 end
 lossReal=[65.078,lossReal]
 %plot bar graph for real power loss
- xval=["base", "Pen @ "+ num2str(2),"Pen @ "+ num2str(29),"Pen @ "+ num2str(9),"Pen @ "+ num2str(21)] 
+ xval=["Base Case", "Penetration at Bus "+ num2str(2),"Penetration at Bus "+ num2str(29),"Penetration at Bus "+ num2str(9)+" and " + num2str(2)] 
 b1= bar(lossReal);
-xticklabels({xval(1),xval(2),xval(3),xval(4),xval(5)});
+xticklabels({xval(1),xval(2),xval(3),xval(4)});
 xlabel('Penetration Scenarios');
-ylabel('Total feeder Active Power Loss');
+ylabel('Total feeder Active Power Loss (kW)');
     %plot bar graph
     % Create x-axis values
     bus=1:1:29;
@@ -31,15 +46,16 @@ x =bus;
 figure;
 
 % Plot multiple bar graphs
-b = bar(x, voltageData);
+b = plot(x, voltageData);
 bus=1:1:29;
 bus=bus.';
 xticks(bus);
 xlabel('Bus');
 ylabel('Voltage in pu');
-ylim([0 1.1]);
+legend('Penetration of 142kW charger at Bus 2(Strong Bus)','Penetration of 142kW charger at Bus 29(Weak Bus)','Penetration of 142kW charger at Bus 2 and Bus 9 each (Strong and Average Bus)' )
+ylim([0.94 1]);
 % Customize the appearance
-set(b, {'FaceColor'}, {[0.3 0.3 0.9]; [0.9 0.3 0.3]; [0.3 0.9 0.3]; [ 0.9 0.9 0.3]});
+% set(b, {'FaceColor'}, {[0.3 0.3 0.9]; [0.9 0.3 0.3]; [0.3 0.9 0.3]});
 % Adjust the figure size if needed
 set(gcf, 'Position', [100, 100, 800, 600]);
 
